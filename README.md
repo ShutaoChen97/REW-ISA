@@ -73,7 +73,7 @@ In order to verify the rationality of the selected parameters, **3D graphs** can
 If you have optimized parameters, you can run REW-ISA, under specific parameters. Use the following code:
 
     REWISA_bicluster <- REWISA(FPKM_IP = IP_sample, FPKM_INPUT = input_sample, optimization = FALSE, fixed_side = FALSE, 
-    		   				   optimal_thr_row = find_TR, optimal_thr_col = find_TC)
+    		   	       optimal_thr_row = find_TR, optimal_thr_col = find_TC)
  	# supplement:
     # If you do not need to optimize parameters, you must set optimization to FALSE.
 
