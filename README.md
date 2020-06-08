@@ -41,8 +41,8 @@ To find the optimized parameters for REW-ISA for the given data, use the followi
 
     REWISA_result <- REWISA(FPKM_IP = IP_sample, FPKM_INPUT = input_sample,
                             optimization = TRUE, repeat_num = 10, fixed_side = FALSE, 
-                    	    thr_col_interval = seq(0.1, 1.5, 0.05), col_step = 0.05,
-                     	    thr_row_interval = seq(1, 3, 0.1), row_step = 0.1)
+                    	   thr_col_interval = seq(0.1, 1.5, 0.05), col_step = 0.05,
+                     	   thr_row_interval = seq(1, 3, 0.1), row_step = 0.1)
 
     # supplement:
     # If you want to optimize the parameters, you must set optimization to TRUE.
@@ -73,7 +73,7 @@ In order to verify the rationality of the selected parameters, **3D graphs** can
 If you have optimized parameters, you can run REW-ISA, under specific parameters. Use the following code:
 
     REWISA_bicluster <- REWISA(FPKM_IP = IP_sample, FPKM_INPUT = input_sample, optimization = FALSE, fixed_side = FALSE, 
-    		   	       optimal_thr_row = find_TR, optimal_thr_col = find_TC)
+    		   	     optimal_thr_row = find_TR, optimal_thr_col = find_TC)
  	# supplement:
     # If you do not need to optimize parameters, you must set optimization to FALSE.
 
