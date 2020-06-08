@@ -218,6 +218,7 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
           }
         }
       }
+      ASwC[is.na(ASwC)] <- 1
       # calculate the mean of ASwC, SDwC and the mode of LFB_num
       for (var_1 in 1:thr_row_num) {
         for (var_2 in 1:thr_col_num) {
