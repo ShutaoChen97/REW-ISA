@@ -307,6 +307,7 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
         isares2 <- isa.filter.robust(nm_w[[2]], nm_w, isares.unique)
         bc <- isa.biclust(isares2)
         LFB <<- bc
+        return(bc)
       }
     }
   }
