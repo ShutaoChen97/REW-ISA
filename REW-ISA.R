@@ -1,4 +1,4 @@
-REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_thr_col, 
+REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_thr_col, LFB_num_optimial,  
                    optimization, repeat_num, thr_row_interval, row_step,  
                    thr_col_interval, col_step, 
                    fixed_side, side, row_fix_temp, col_fix_temp){
@@ -141,11 +141,26 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
             ## Filter out not robust ones
             isares2 <- isa.filter.robust(nm_w[[2]], nm_w, isares.unique)
             bc <- isa.biclust(isares2)
+            isa_row <- bc@RowxNumber
+            isa_col <- bc@NumberxCol
+            isa_col_sum <- apply(isa_col, 1, sum)
+            isa_drop_index <- which(isa_col_sum == 1)
+            if(length(isa_drop_index) != 0) {
+              isa_row_new <- as.matrix(isa_row[, -isa_drop_index])
+              if(ncol(isa_row_new) == 1) {
+                isa_col_new <- t(as.matrix(isa_col[-isa_drop_index, ]))
+              } else {
+                isa_col_new <- as.matrix(isa_col[-isa_drop_index, ])
+              }
+              isa_number <- nrow(isa_col_new)
+              bc@RowxNumber <- as.matrix(isa_row_new)
+              bc@NumberxCol <- as.matrix(isa_col_new)
+              bc@Number <- isa_number
+            }
             # Cluster analysis
             isa_row <- bc@RowxNumber
             isa_col <- bc@NumberxCol
-            temp_pcc_vec_col <- vector()
-            temp_pcc_post_col <- 1
+            aswc_temp <- vector()
             mean <- vector()
             std <- vector()
             cluster_number <- ncol(isa_row)
@@ -155,6 +170,8 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
             }
             if(cluster_number >= 1) {
               for (temp_num in 1:cluster_number) {
+                temp_pcc_vec_col <- vector()
+                temp_pcc_post_col <- 1
                 r <- isa_row[, temp_num]
                 c <- isa_col[temp_num, ]
                 rr <- list()
@@ -176,25 +193,33 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
                 length_c <- length(cc)
                 length_r <- length(rr)
                 # Calculate ASwC
-                for (var_1 in cc) {
-                  for (var_2 in cc) {
-                    temp_vector_1 <- vector()
-                    temp_vector_2 <- vector()
-                    temp_post <- 1
-                    for (var_3 in rr) {
-                      temp_vector_1[temp_post] <- nm_w[[2]][var_3, var_1]
-                      temp_vector_2[temp_post] <- nm_w[[2]][var_3, var_2]
-                      temp_post <- temp_post + 1
-                    }
-                    temp_pcc_vec_col[temp_pcc_post_col] <- cor(temp_vector_1, temp_vector_2, method='pearson')
-                    temp_pcc_post_col <- temp_pcc_post_col + 1
-                  }
+                if (length_c == 1) {
+                  aswc_temp[temp_num] <- 0
                 }
+                else {
+                  for (var_1 in cc) {
+                    for (var_2 in cc) {
+                      temp_vector_1 <- vector()
+                      temp_vector_2 <- vector()
+                      temp_post <- 1
+                      for (var_3 in rr) {
+                        temp_vector_1[temp_post] <- data_weight[var_3, var_1]
+                        temp_vector_2[temp_post] <- data_weight[var_3, var_2]
+                        temp_post <- temp_post + 1
+                      }
+                      temp_pcc_vec_col[temp_pcc_post_col] <- cor(temp_vector_1, temp_vector_2, method='pearson')
+                      temp_pcc_post_col <- temp_pcc_post_col + 1
+                    }
+                  }
+                  aswc_temp_sum <- ((sum(abs(temp_pcc_vec_col)) / 2) - 0.5 * length_c)
+                  aswc_temp[temp_num] <- (2 / (length_c * (length_c - 1))) * aswc_temp_sum
+                }
+                
                 # Calculate SDwC
                 temp <- 0
                 for (var_1 in rr) {
                   for (var_2 in cc) {
-                    temp <- temp + nm_w[[2]][var_1, var_2]
+                    temp <- temp + data_weight[var_1, var_2]
                   }
                 }
                 mean_temp <- temp / (length_c * length_r)
@@ -202,14 +227,14 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
                 count <- 0
                 for (var_1 in rr) {
                   for (var_2 in cc) {
-                    temp <- (nm_w[[2]][var_1, var_2] - mean_temp)^2
+                    temp <- (data_weight[var_1, var_2] - mean_temp)^2
                     count <- count + temp
                   }
                 }
                 std_temp <- sqrt(count / (length_c * length_r))
                 std[temp_num] <- std_temp
               }
-              ASwC[cycle, epoch, row_index] <- mean(abs(temp_pcc_vec_col))
+              ASwC[cycle, epoch, row_index] <- mean(aswc_temp)
               SDwC[cycle, epoch, row_index] <- mean(std)
             }
             # Statistics cluster number
@@ -227,54 +252,135 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
           LFB_num_mode[var_1, var_2] <- getmode(LFB_num[, var_2, var_1])
         }
       }
-      SDAS <- SDwC_mean + ASwC_mean
-      # Find out the best LFB_number
-      LFB_number_filter <- table(LFB_num_mode)
+      
+      nrow_temp <- (2 * ceiling(0.1 / row_step)) + 1
+      ncol_temp <- (2 * ceiling(0.1 / col_step)) + 1
+      nrow_step <- (nrow_temp - 1) / 2
+      ncol_step <- (ncol_temp - 1) / 2
+      LFB_max <- which(LFB_num_mode == max(LFB_num_mode), arr.ind = T)
+      row_max_index <- max(LFB_max[, 1]) + nrow_step
+      col_max_index <- max(LFB_max[, 2]) + ncol_step
+      LFB_num_all <- LFB_num_mode
+      LFB_num_mode <- LFB_num_mode[1:row_max_index, 1:col_max_index]
+      ASwC_mode <- ASwC_mode[1:row_max_index, 1:col_max_index]
+      SDwC_mode <- SDwC_mode[1:row_max_index, 1:col_max_index]
+
+      getmode <- function(v) {
+        uniqv <- unique(v)
+        uniqv[which.max(tabulate(match(v, uniqv)))]
+      }
+
+      thr_row_num_second <- row_max_index
+      thr_col_num_second <- col_max_index
+      LFB_sliding <- matrix(1, nrow = nrow_temp, ncol = ncol_temp)
+      sliding_score <- array(dim = c((thr_row_num_second - nrow_step), (thr_col_num_second - ncol_step)))
+      for (var_1 in 1:(thr_row_num_second - nrow_step)) {
+        for (var_2 in 1:(thr_col_num_second - ncol_step)) {
+          if (var_1 <= nrow_step || var_2 <= ncol_step){
+            sliding_row <- var_1 - nrow_step
+            if (sliding_row < 1) {
+              sliding_row <- 1
+            }
+            sliding_col <- var_2 - ncol_step
+            if (sliding_col < 1) {
+              sliding_col <- 1
+            }
+            LFB_select_min <- LFB_num_mode[sliding_row:(var_1 + nrow_step), sliding_col:(var_2 + ncol_step)]
+          }
+
+          if (var_1 > nrow_step && var_2 > ncol_step) {
+            LFB_select_min <- LFB_num_mode[(var_1 - nrow_step) : (var_1 + nrow_step),
+                                           (var_2 - ncol_step) : (var_2 + ncol_step)]
+          }
+          
+          LFB_select_min <- apply(LFB_select_min, 2, as.numeric)
+          LFB_min_mode <- getmode(LFB_select_min)
+          if (LFB_num_mode[var_1, var_2] == LFB_min_mode) {
+            sliding_score[var_1, var_2] <- 1
+          } else {
+            sliding_score[var_1, var_2] <- 0
+          }
+        }
+      }
+
+      LFB_weight <- sliding_score * LFB_num_mode[(1:(nrow(LFB_num_mode)-nrow_step)),
+                                                 (1:(ncol(LFB_num_mode)-ncol_step))]
+      LFB_weight_max <- max(LFB_weight)
+
+      row_max_index <- row_max_index - nrow_step
+      col_max_index <- col_max_index - ncol_step
+      LFB_num_mode <- LFB_num_mode[1:row_max_index, 1:col_max_index]
+      ASwC_mode <- ASwC_mode[1:row_max_index, 1:col_max_index]
+      SDwC_mode <- SDwC_mode[1:row_max_index, 1:col_max_index]
+
+
+      #########################################选出删掉前多少行多少列
+      col_mode <- vector()
+      col_mode_num <- vector()
+      col_ratio <- vector()
+      for (variable in 1:ncol(LFB_num_mode)) {
+        col_mode[variable] <- as.numeric(getmode(LFB_num_mode[, variable]))
+        col_mode_num[variable] <- length(which(LFB_num_mode[, variable] == col_mode[variable]))
+        col_ratio[variable] <- col_mode_num[variable] / nrow(LFB_num_mode_norm)
+      }
+      col_ratio_mean <- mean(col_ratio)
+      std_col_index <- which(col_ratio <= col_ratio_mean)
+      std_col_start <- min(std_col_index)
+      
+      row_mode <- vector()
+      row_mode_num <- vector()
+      row_ratio <- vector()
+      for (variable in 1:nrow(LFB_num_mode)) {
+        row_mode[variable] <- as.numeric(getmode(LFB_num_mode[variable, ]))
+        row_mode_num[variable] <- length(which(LFB_num_mode[variable, ] == row_mode[variable]))
+        row_ratio[variable] <- row_mode_num[variable] / ncol(LFB_num_mode_norm)
+      }
+      row_ratio_mean <- mean(row_ratio)
+      std_row_index <- which(row_ratio <= row_ratio_mean)
+      std_row_start <- min(std_row_index)
+
+      LFB_weight_test <- LFB_weight[std_row_start:nrow(LFB_weight), std_col_start:ncol(LFB_weight)]
+
+      LFB_number_filter <- table(as.matrix(as.data.frame(LFB_weight_test)))
       LFB_number_filter <- as.data.frame(LFB_number_filter)
-      LFB_number_filter <- LFB_number_filter[order(LFB_number_filter[, 2], decreasing = T), ]
-      mode_temp <- 1
-      for (var_1 in 1:nrow(LFB_number_filter)) {
-        if(LFB_number_filter[mode_temp, 1] == 0 ||
-           LFB_number_filter[mode_temp, 1] == 1 || 
-           LFB_number_filter[mode_temp, 1] == 2) {
-          mode_temp <- mode_temp + 1
-        }
-      }
-      LFB_number <- as.numeric(as.character(LFB_number_filter[mode_temp, 1]))
-      LFB_logical <- LFB_num_mode == LFB_number
-      LFB_select <- LFB_logical * LFB_num_mode
+      delete0 <- which(LFB_number_filter[, 1] == 0)
+      LFB_number_filter <- LFB_number_filter[-delete0, ]
+      LFB_sum <- sum(LFB_number_filter[, 2])
+      LFB_number_filter[, 1] <- as.numeric(as.character(LFB_number_filter[, 1]))
+      LFB_number_filter[, 2] <- LFB_number_filter[, 2] / LFB_sum
+      LFB_filter_find <- LFB_number_filter[, 1] * LFB_number_filter[, 2]
+      LFB_filter_index <- which(LFB_filter_find == max(LFB_filter_find))
+      LFB_filter_final <- as.numeric(LFB_number_filter[LFB_filter_index, 1])
+      LFB_number <- LFB_filter_final
+      LFB_weight_test[LFB_weight_test != LFB_filter_final] <- 0
+
+
+      SDwC_mean <- SDwC_mean[std_row_start:nrow(SDwC_mean), std_col_start:ncol(SDwC_mean)]
+      ASwC_mean <- ASwC_mean[std_row_start:nrow(ASwC_mean), std_col_start:ncol(ASwC_mean)]
+      SDwC_mean_norm <- (SDwC_mean - min(SDwC_mean)) / (max(SDwC_mean) - min(SDwC_mean))
+      SDwC_mean_norm_2 <- 1 - SDwC_mean_norm
+      ASwC_mean_norm <- (ASwC_mean - min(ASwC_mean)) / (max(ASwC_mean) - min(ASwC_mean))
+      ASwC_mean_norm_2 <- 1 - ASwC_mean_norm
+
+
+      ASwC_weight <- ASwC_mean_norm_2 * LFB_weight_test
+      ASwC_useful_num <- length(which(ASwC_weight != 0))
+      ASwC_temp <- ASwC_mean_norm_2 * LFB_weight_test
+      ASwC_temp[ASwC_temp < (sum(ASwC_weight) / ASwC_useful_num)] <- 0
+      ASwC_temp[ASwC_temp != 0] <- 1
+
+      SDwC_temp <- SDwC_mean_norm_2 * ASwC_temp
+      SDwC_temp[SDwC_temp == 0] <- 200
+      thr_row_find_index <- as.numeric(as.data.frame(which(SDwC_temp == min(SDwC_temp),
+                                                           arr.ind = T))[1, 1])
+      thr_col_find_index <- as.numeric(as.data.frame(which(SDwC_temp == min(SDwC_temp),
+                                                           arr.ind = T))[1, 2])
+
+      thr_row <- (std_row_start - 1) * row_step + thr_row_find_index * row_step
+      thr_col <- (std_col_start - 1) * col_step + thr_col_find_index * col_step
       
-      # Establish Sliding window
-      LFB_sliding <- matrix(1, nrow = 2, ncol = 2)
-      sliding_score <- array(dim = c((thr_row_num - 1), (thr_col_num - 1)))
-      sliding_SDAS <- array(dim = c((thr_row_num - 1), (thr_col_num - 1)))
-      for (var_1 in 1:(thr_row_num - 1)) {
-        for (var_2 in 1:(thr_col_num - 1)) {
-          sliding_score[var_1, var_2] <- 
-            min(LFB_select[var_1 : (var_1 + 1), var_2 : (var_2 + 1)])
-          sliding_SDAS[var_1, var_2] <- 
-            mean(SDAS[var_1 : (var_1 + 1), var_2 : (var_2 + 1)])
-        }
-      }
-      sliding_select <- sliding_score * sliding_SDAS
-      sliding_select[sliding_select < 0.01] <- 20000
-      sliding_row <- which(sliding_select == min(sliding_select), arr.ind = T)[1, 1]
-      sliding_col <- which(sliding_select == min(sliding_select), arr.ind = T)[1, 2]
-      sliding_row <- as.numeric(sliding_row)
-      sliding_col <- as.numeric(sliding_col)
-      
-      SDAS_min <- SDAS[sliding_row:(sliding_row + 1), sliding_col:(sliding_col + 1)]
-      SDAS_row <- which(SDAS_min == min(SDAS_min), arr.ind = T)[1, 1]
-      SDAS_col <- which(SDAS_min == min(SDAS_min), arr.ind = T)[1, 2]
-      SDAS_row <- as.numeric(SDAS_row)
-      SDAS_col <- as.numeric(SDAS_col)
-      thr_row_find_index <- sliding_row + SDAS_row - 1
-      thr_col_find_index <- sliding_col + SDAS_col - 1
-      thr_row_find <- thr_row_interval[thr_row_find_index]
-      thr_col_find <- thr_col_interval[thr_col_find_index]
-      
-      find_TR <<- thr_row_find
-      find_TC <<- thr_col_find
+      find_TR <<- thr_row
+      find_TC <<- thr_col
       LFB_number <<- LFB_number
       ASwC <<- ASwC
       SDwC <<- SDwC
@@ -297,15 +403,37 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
         stop("No optimal thresholds, please optimize the row and column thresholds first")
       }
       if ((!missing(optimal_thr_row) && !missing(optimal_thr_col))) {
-        # Random seeds
-        seeds <- generate.seeds(length = len_row, count = 100)
-        isares <- isa.iterate(nm_w, row.seeds = seeds,
-                              thr.row = optimal_thr_row, thr.col = optimal_thr_col)
-        # Eliminate duplicated modules
-        isares.unique <- isa.unique(nm_w, isares)
-        # Filter out not robust ones
-        isares2 <- isa.filter.robust(nm_w[[2]], nm_w, isares.unique)
-        bc <- isa.biclust(isares2)
+        LFB_num_dec <- -1
+        LFB_num_dec <- as.numeric(LFB_num_dec)
+        LFB_num_optimial <- as.numeric(LFB_num_optimial)
+        while (LFB_num_dec != LFB_num_optimial){
+          # Random seeds
+          seeds <- generate.seeds(length = len_row, count = 100)
+          isares <- isa.iterate(nm_w, row.seeds = seeds,
+                                thr.row = optimal_thr_row, thr.col = optimal_thr_col)
+          # Eliminate duplicated modules
+          isares.unique <- isa.unique(nm_w, isares)
+          # Filter out not robust ones
+          isares2 <- isa.filter.robust(nm_w[[2]], nm_w, isares.unique)
+          bc <- isa.biclust(isares2)
+          isa_row <- bc@RowxNumber
+          isa_col <- bc@NumberxCol
+          isa_col_sum <- apply(isa_col, 1, sum)
+          isa_drop_index <- which(isa_col_sum == 1)
+          if(length(isa_drop_index) != 0) {
+            isa_row_new <- as.matrix(isa_row[, -isa_drop_index])
+            if(ncol(isa_row_new) == 1) {
+              isa_col_new <- t(as.matrix(isa_col[-isa_drop_index, ]))
+            } else {
+              isa_col_new <- as.matrix(isa_col[-isa_drop_index, ])
+            }
+            isa_number <- nrow(isa_col_new)
+            bc@RowxNumber <- as.matrix(isa_row_new)
+            bc@NumberxCol <- as.matrix(isa_col_new)
+            bc@Number <- isa_number
+          }
+          LFB_num_dec <- as.numeric(bc@Number)
+        }
         LFB <<- bc
         return(bc)
       }
