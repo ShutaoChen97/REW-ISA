@@ -83,7 +83,8 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, Ratio, weight, optimal_thr_row, optimal_
   nm_w[[2]] <- nm_test[[2]] * weight
   names(nm_w)[1] <- paste("Er")
   names(nm_w)[2] <- paste("Ec")
-  
+  data_weight <- Ratio * weight
+
   getmode <- function(v) {
     uniqv <- unique(v)
     uniqv[which.max(tabulate(match(v, uniqv)))]
