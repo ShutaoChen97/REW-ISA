@@ -3,7 +3,7 @@
 
 
 ## New support ##
-REW-ISA now supports calling in the form of R packages. The Github link of REW-ISA R package is:https://github.com/cst-cumt/REWISA.
+REW-ISA now supports calling in the form of R packages. The Github link of REW-ISA R package is: https://github.com/cst-cumt/REWISA.
 
 
 ## Function description ##
