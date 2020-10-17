@@ -83,3 +83,6 @@ If you have optimized parameters, you can run REW-ISA, under specific parameters
 Please contact the maintainer of *REW-ISA* if you have encountered any problems:
 
 **Shutao Chen:** shutao.chen@cumt.edu.cn
+
+## Reference ##
+Zhang, L., Chen, S., Zhu, J., Meng, J., & Liu, H. (2020). REW-ISA: unveiling local functional blocks in epi-transcriptome profiling data via an RNA expression-weighted iterative signature algorithm. BMC bioinformatics, 21(1), 1-22.
