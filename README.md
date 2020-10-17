@@ -1,6 +1,11 @@
 # The *REW-ISA* user's guide #
 2020/5/12 15:51:07 
 
+
+## New support ##
+REW-ISA now supports calling in the form of R packages. The Github link is:https://github.com/cst-cumt/REWISA.
+
+
 ## Function description ##
 ***REW-ISA*: RNA Expression Weighted Iterative Signature Algorithm**
 
