@@ -4,6 +4,8 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, MethylationLevel, ExpressionLevel,
   # Input parameters of REW-ISA:
   # FPKM_IP: Represents the FPKM of the IP sample in the MeRIP-Seq data.
   # FPKM_INPUT: Represents the FPKM of the INPUT sample in the MeRIP-Seq data.
+  # MethylationLevel: Represents the calculated methylation level matrix.
+  # ExpressionLevel: Represents the calculated expression level matrix.
   # optimization: Logical variables. If TRUE, turn on threshold optimization.
   # repeat_num: Indicates the number of times to run REW-ISA repeatedly under each pair of threshold parameter settings.
   # thr_row_interval and thr_col_interval: Represent the selection range of row and column thresholds.
