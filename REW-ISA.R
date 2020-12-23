@@ -1,12 +1,15 @@
 REWISA <- function(FPKM_IP, FPKM_INPUT, MethylationLevel, ExpressionLevel,
-                   optimal_thr_row, optimal_thr_col, optimization, repeat_num,
-                   thr_row_interval, row_step, thr_col_interval, col_step){
+                   optimal_thr_row, optimal_thr_col, optimal_LFB_num, 
+                   optimization, repeat_num, thr_row_interval, row_step,
+                   thr_col_interval, col_step){
   # Input parameters of REW-ISA:
   # FPKM_IP: Represents the FPKM of the IP sample in the MeRIP-Seq data.
   # FPKM_INPUT: Represents the FPKM of the INPUT sample in the MeRIP-Seq data.
   # MethylationLevel: Represents the calculated methylation level matrix.
   # ExpressionLevel: Represents the calculated expression level matrix.
   # optimization: Logical variables. If TRUE, turn on threshold optimization.
+  # optimal_thr_row and optimal_thr_col:Represents the optimized row and column thresholds, respectively.
+  # optimal_LFB_num: Represents the number of optimized local functional blocks.
   # repeat_num: Indicates the number of times to run REW-ISA repeatedly under each pair of threshold parameter settings.
   # thr_row_interval and thr_col_interval: Represent the selection range of row and column thresholds.
   # row_step and col_step: Indicate that the row and column threshold is within the step size of the selection.
@@ -19,9 +22,7 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, MethylationLevel, ExpressionLevel,
   # LFB_num: In repeated experiments, a three-dimensional array of LFB numbers generated under each pair of threshold combinations
   # ASwC_mean and SDwC_mean: The average value of each repeated calculation result in each pair of threshold combinations.
   # LFB_num_mode: Under the combination of each pair of thresholds, the mode of the number of LFB is generated.
-  # find_TR: Optimized row threshold.
-  # find_TC: Optimized col threshold.
-  # LFB_number: The optimal number of LFB after optimization.
+  # Function returns a list that stores optimized threshold combinations, the number of LFBs, or specific LFBs.
   
   # Import necessary packages
   library(biclust)
@@ -345,9 +346,13 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, MethylationLevel, ExpressionLevel,
     thr_row_find <- thr_row_interval[thr_row_find_index]
     thr_col_find <- thr_col_interval[thr_col_find_index]
     
-    find_TR <<- thr_row_find
-    find_TC <<- thr_col_find
-    LFB_number <<- LFB_number
+    find_TR <- thr_row_find
+    find_TC <- thr_col_find
+    LFB_number <- LFB_number
+    cat("\n\nThe results obtained by REW-ISA are as follows:")
+    cat("\noptimal_thr_row:", find_TR)
+    cat("\noptimal_thr_col:", find_TC)
+    cat("\noptimal_LFB_number:", LFB_number)
     ASwC <<- ASwC
     SDwC <<- SDwC
     LFB_num <<- LFB_num
@@ -355,9 +360,30 @@ REWISA <- function(FPKM_IP, FPKM_INPUT, MethylationLevel, ExpressionLevel,
     SDwC_mean <<- SDwC_mean
     LFB_num_mode <<- LFB_num_mode
     
-    cat("\n\nThe results obtained by REW-ISA are as follows:")
-    cat("\noptimal_thr_row:", find_TR)
-    cat("\noptimal_thr_col:", find_TC)
-    cat("\noptimal_LFB_number:", LFB_number)
+    optimal.result <- list(FindTR = thr_row_find, FindTC = thr_col_find, 
+                           LFBNUM = LFB_number)
+    return(optimal.result)
+  }
+  
+  # Finding LFBs under optimized threshold
+  if (optimization == FALSE) {
+    LFB_num_compare <- -1
+    if ((missing(optimal_thr_row) && missing(optimal_thr_col) && missing(optimal_LFB_num))) {
+      stop("Input missing optimal thresholds or optimal number of local functional blocks!")
+    } else {
+      while (LFB_num_compare != optimal_LFB_num) {
+        # Random seeds
+        seeds <- generate.seeds(length = len_row, count = 100)
+        isares <- isa.iterate(nm_w, row.seeds = seeds,
+                              thr.row = optimal_thr_row, thr.col = optimal_thr_col)
+        # Eliminate duplicated modules
+        isares.unique <- isa.unique(nm_w, isares)
+        # Filter out not robust ones
+        isares2 <- isa.filter.robust(nm_w[[2]], nm_w, isares.unique)
+        bc <- isa.biclust(isares2)
+        LFB_num_compare <- bc@Number
+      }
+      return(bc)
+    }
   }
 }
