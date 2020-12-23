@@ -44,8 +44,8 @@ To find the optimized parameters for REW-ISA for the given data, use the followi
 
     REWISA_result <- REWISA(FPKM_IP = IP_sample, FPKM_INPUT = input_sample,
                             optimization = TRUE, repeat_num = 10,  
-			        thr_col_interval = seq(0.1, 1.5, 0.05), col_step = 0.05,
-   			        thr_row_interval = seq(1, 3, 0.1), row_step = 0.1)
+                            thr_col_interval = seq(0.1, 1.5, 0.05), col_step = 0.05,
+                            thr_row_interval = seq(1, 3, 0.1), row_step = 0.1)
 
     # Input parameters of REW-ISA:
     # FPKM_IP: Represents the FPKM of the IP sample in the MeRIP-Seq data.
@@ -65,9 +65,7 @@ To find the optimized parameters for REW-ISA for the given data, use the followi
     # LFB_num: In repeated experiments, a three-dimensional array of LFB numbers generated under each pair of threshold combinations
     # ASwC_mean and SDwC_mean: The average value of each repeated calculation result in each pair of threshold combinations.
     # LFB_num_mode: Under the combination of each pair of thresholds, the mode of the number of LFB is generated.
-    # find_TR: Optimized row threshold.
-    # find_TC: Optimized col threshold.
-    # LFB_number: The optimal number of LFB after optimization.
+    # Function returns a list that stores optimized threshold combinations, the number of LFBs.
 
 The optimized parameters are calculated automatically according to the final algorithms of ***LFB\_num\_mode***, ***SDwC\_mean*** and ***ASwC\_mean***.
 
@@ -79,10 +77,12 @@ In order to verify the rationality of the selected parameters, **3D graphs** can
 
 If you have optimized parameters, you can run REW-ISA, under specific parameters. Use the following code:
 
-    REWISA_bicluster <- REWISA(FPKM_IP = IP_sample, FPKM_INPUT = input_sample, optimization = FALSE,  
-   				   optimal_thr_row = find_TR, optimal_thr_col = find_TC, LFB_num_optimial = LFB_number)
+    REWISA_bicluster <- REWISA(FPKM_IP = IP_sample, FPKM_INPUT = input_sample,
+                               optimization = FALSE, optimal_LFB_num = find_LFB_number,
+                               optimal_thr_row = find_TR, optimal_thr_col = find_TC)
     # supplement:
     # If you do not need to optimize parameters, you must set optimization to FALSE.
+    # Function returns a list that stores specific LFBs.
 
 
 
